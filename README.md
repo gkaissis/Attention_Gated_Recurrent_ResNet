@@ -1,2 +1,2 @@
-# Attention_Gated_Recurrent_ResNet
+# Attention Gated Recurrent ResNet
 Recurrent Residual Convolutional Neural Network with Attention Gating
