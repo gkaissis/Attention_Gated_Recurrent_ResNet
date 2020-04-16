@@ -1,5 +1,6 @@
-from keras.models import Model
-from keras.layers import (
+import tensorflow
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import (
     Conv2D,
     Conv2DTranspose,
     add,
@@ -12,7 +13,7 @@ from keras.layers import (
 )
 
 
-def ConvBnElu(inp, filters, kernel_size=3, strides=1):
+def ConvBnElu(inp, filters, kernel_size=3, strides=1, dilation_rate=1):
 
     x = Conv2D(
         filters=filters,
@@ -21,6 +22,7 @@ def ConvBnElu(inp, filters, kernel_size=3, strides=1):
         padding="same",
         kernel_initializer="he_uniform",
         use_bias=False,
+        dilation_rate=dilation_rate,
     )(inp)
     x = BatchNormalization()(x)
     x = Activation("elu")(x)
@@ -86,25 +88,29 @@ def attention_concat_upsample(across, below):
 
 
 def RR_block(inp, out_filters, dropout=0.2):
+    """ Reccurent conv block with decreasing kernel size. Makes use of atrous convolutions to make large kernel sizes computationally feasible
+
+    """
 
     initial = skip = ConvBnElu(inp, out_filters, kernel_size=1)
 
-    c1 = ConvBnElu(initial, out_filters)
+    c1 = ConvBnElu(initial, out_filters, kernel_size=8, dilation_rate=4)
     c1 = SpatialDropout2D(dropout)(c1)
-    c2 = ConvBnElu(add([initial, c1]), out_filters)
+    c2 = ConvBnElu(add([initial, c1]), out_filters,
+                   kernel_size=6, dilation_rate=3)
     c2 = SpatialDropout2D(dropout)(c2)
-    c3 = ConvBnElu(c2, out_filters)
+    c3 = ConvBnElu(c2, out_filters, kernel_size=4, dilation_rate=2)
     c3 = SpatialDropout2D(dropout)(c3)
-    c4 = ConvBnElu(add([c2, c3]), out_filters)
+    c4 = ConvBnElu(add([c2, c3]), out_filters, kernel_size=3, dilation_rate=1)
 
     return add([skip, c4])
 
 
-def AttentionR2Unet(
+def MoNet(
     input_shape=(256, 256, 1),
     output_classes=1,
-    depth=4,
-    n_filters_init=64,
+    depth=2,
+    n_filters_init=16,
     dropout_enc=0.2,
     dropout_dec=0.2,
 ):
